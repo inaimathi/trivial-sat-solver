@@ -54,15 +54,17 @@
 
 (defun satisfied-by (tree &optional bindings)
   (let ((vars (free-variables-in tree)))
-    (if (null vars)
-	(when (eq 'true (simplify tree)) bindings)
-	(let ((v (first vars)))
-	  (or (satisfied-by
-	       (assign v 'true tree)
-	       (cons (cons v 'true) bindings))
-	      (satisfied-by
-	       (assign v 'false tree)
-	       (cons (cons v 'false) bindings)))))))
+    (if (eq 'true (simplify tree))
+        (values bindings t)
+        (if (null vars)
+            (values nil nil)
+            (let ((v (first vars)))
+              (or (satisfied-by
+                   (assign v 'true tree)
+                   (cons (cons v 'true) bindings))
+                  (satisfied-by
+                   (assign v 'false tree)
+                   (cons (cons v 'false) bindings))))))))
 
 (defun knuth->tree (stream)
   (cons
@@ -77,3 +79,24 @@
                               `(not ,(intern (string-upcase (subseq v 1))))
                               (intern (string-upcase v))))
                         split))))))
+
+;; (satisfied-by
+;;  (with-input-from-string (s "x2 x3 ~x4
+;; x1 x3 x4
+;; ~x1 x2 x4
+;; ~x1 ~x2 x3
+;; ~x2 ~x3 x4
+;; ~x1 ~x3 ~x4
+;; x1 ~x2 ~x4")
+;;    (knuth->tree s)))
+
+;; (satisfied-by
+;;  (with-input-from-string (s "x2 x3 ~x4
+;; x1 x3 x4
+;; ~x1 x2 x4
+;; ~x1 ~x2 x3
+;; ~x2 ~x3 x4
+;; ~x1 ~x3 ~x4
+;; x1 ~x2 ~x4
+;; x1 x2 ~x3")
+;;    (knuth->tree s)))
