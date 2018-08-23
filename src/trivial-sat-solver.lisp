@@ -80,6 +80,12 @@
                               (intern (string-upcase v))))
                         split))))))
 
+(defun bindings->knuth (env)
+  (format
+   nil "~{~a~^ ~}"
+   (loop for (k . v) in env
+      collect (format nil "~:[~~~;~]~a" (eq 'true v) k))))
+
 ;; (satisfied-by
 ;;  (with-input-from-string (s "x2 x3 ~x4
 ;; x1 x3 x4
