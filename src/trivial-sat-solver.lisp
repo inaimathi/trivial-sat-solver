@@ -52,14 +52,28 @@
 	(or (satisfiable? (assign (first vars) 'true tree))
 	    (satisfiable? (assign (first vars) 'false tree))))))
 
-(defun satisfiable-by (tree &optional bindings)
+(defun satisfied-by (tree &optional bindings)
   (let ((vars (free-variables-in tree)))
     (if (null vars)
 	(when (eq 'true (simplify tree)) bindings)
 	(let ((v (first vars)))
-	  (or (satisfiable-by
+	  (or (satisfied-by
 	       (assign v 'true tree)
 	       (cons (cons v 'true) bindings))
-	      (satisfiable-by
+	      (satisfied-by
 	       (assign v 'false tree)
 	       (cons (cons v 'false) bindings)))))))
+
+(defun knuth->tree (stream)
+  (cons
+   'and
+   (loop for ln = (read-line stream nil nil)
+      while ln
+      unless (char= #\space (char ln 0))
+      collect (let ((split (split-sequence:split-sequence #\space ln)))
+                `(or ,@(mapcar
+                        (lambda (v)
+                          (if (char= #\~ (char v 0))
+                              `(not ,(intern (string-upcase (subseq v 1))))
+                              (intern (string-upcase v))))
+                        split))))))
