@@ -22,9 +22,6 @@
 (defun assign (var val tree)
   (subst val var tree))
 
-(defun all (val seq)
-  (every (lambda (el) (eq el val)) seq))
-
 (defun simplify (tree)
   (if (atom tree)
       tree
