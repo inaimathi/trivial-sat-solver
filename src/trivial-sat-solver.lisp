@@ -22,6 +22,12 @@
 (defun assign (var val tree)
   (subst val var tree))
 
+(defun assign-env (env tree)
+  (reduce
+   (lambda (memo binding)
+     (assign (car binding) (cdr binding) memo))
+   env :initial-value tree))
+
 (defun simplify (tree)
   (if (atom tree)
       tree
@@ -66,7 +72,46 @@
                    (assign v 'false tree)
                    (cons (cons v 'false) bindings))))))))
 
-(defun knuth->tree (stream)
+(defun tricky-satisfied-by (cnf)
+  (let ((elim (literal-elimination cnf)))
+    (satisfied-by
+     (assign-env elim cnf)
+     elim)))
+
+(defun fix-negations (tree)
+  tree)
+
+(defun distribute (tree)
+  tree)
+
+(defun ->cnf (tree)
+  (let ((updated (distribute (fix-negations tree))))
+    (if (equalp tree updated)
+	updated
+	(->cnf updated))))
+
+(defun occurrences-of (v tree)
+  (cond ((or (eq v tree) (equal `(not ,v) tree))
+	 (list tree))
+	((atom tree) nil)
+	(t (concatenate
+	    'list
+	    (occurrences-of v (car tree))
+	    (occurrences-of v (cdr tree))))))
+
+(defun literal-elimination (cnf)
+  (loop for v in (free-variables-in cnf)
+     for occ = (remove-duplicates (occurrences-of v cnf) :test #'equal)
+     when (not (cdr occ))
+     collect (cons v (if (eq (car occ) v) 'true 'false))))
+
+(defun unit-propagation (tree)
+  (loop for v in tree
+     if (var? v) collect (cons v 'true)
+     else if (and (consp v) (eq (car v) 'not) (var? (cadr v)))
+     collect (cons (cadr v) 'false)))
+
+(defmethod knuth->tree (stream)
   (cons
    'and
    (loop for ln = (read-line stream nil nil)
@@ -75,10 +120,15 @@
       collect (let ((split (split-sequence:split-sequence #\space ln)))
                 `(or ,@(mapcar
                         (lambda (v)
-                          (if (char= #\~ (char v 0))
+                          (if (or (char= #\- (char v 0))
+				  (char= #\~ (char v 0)))
                               `(not ,(intern (string-upcase (subseq v 1))))
                               (intern (string-upcase v))))
                         split))))))
+
+(defmethod knuth->tree ((s string))
+  (with-input-from-string (stream s)
+    (knuth->tree stream)))
 
 (defun bindings->knuth (env)
   (format
@@ -96,13 +146,13 @@
 ;; x1 ~x2 ~x4")
 ;;    (knuth->tree s)))
 
-;; (satisfied-by
-;;  (with-input-from-string (s "x2 x3 ~x4
-;; x1 x3 x4
-;; ~x1 x2 x4
-;; ~x1 ~x2 x3
-;; ~x2 ~x3 x4
-;; ~x1 ~x3 ~x4
-;; x1 ~x2 ~x4
-;; x1 x2 ~x3")
-;;    (knuth->tree s)))
+(satisfied-by
+ (with-input-from-string (s "x2 x3 ~x4
+x1 x3 x4
+~x1 x2 x4
+~x1 ~x2 x3
+~x2 ~x3 x4
+~x1 ~x3 ~x4
+x1 ~x2 ~x4
+x1 x2 ~x3")
+   (knuth->tree s)))
